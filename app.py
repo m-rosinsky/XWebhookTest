@@ -38,7 +38,7 @@ def webhook_challenge():
   }
 
   # Returns properly formatted json response.
-  return json.dumps(response)
+  return jsonify(response)
 
 def main():
   parser = argparse.ArgumentParser(
