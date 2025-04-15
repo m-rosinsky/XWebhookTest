@@ -18,27 +18,37 @@ if TWITTER_CONSUMER_SECRET is None:
   print("Missing consumer secret. Ensure TWITTER_CONSUMER_SECRET env var is set.")
   sys.exit(1)
 
-# Defines a route for the GET request
-@app.route('/webhooks/twitter', methods=['GET'])
+# Defines a route for the GET and POST requests.
+@app.route('/webhooks/twitter', methods=['GET', 'POST'])
 def webhook_challenge():
-  crc_token = request.args.get('crc_token')
-  if crc_token is None:
-    return json.dumps({'error': 'No crc_token'})
+  # Handle GET request (CRC challenge)
+  if request.method == 'GET':
+    crc_token = request.args.get('crc_token')
+    if crc_token is None:
+      return json.dumps({'error': 'No crc_token'})
 
-  # Creates HMAC SHA-256 hash from incomming token and your consumer secret.
-  sha256_hash_digest = hmac.new(
-    TWITTER_CONSUMER_SECRET.encode('utf-8'),
-    msg=crc_token.encode('utf-8'),
-    digestmod=hashlib.sha256
-  ).digest()
+    # Creates HMAC SHA-256 hash from incomming token and your consumer secret.
+    sha256_hash_digest = hmac.new(
+      TWITTER_CONSUMER_SECRET.encode('utf-8'),
+      msg=crc_token.encode('utf-8'),
+      digestmod=hashlib.sha256
+    ).digest()
 
-  # Construct response data with base64 encoded hash.
-  response = {
-    'response_token': 'sha256=' + base64.b64encode(sha256_hash_digest).decode('utf-8')
-  }
+    # Construct response data with base64 encoded hash.
+    response = {
+      'response_token': 'sha256=' + base64.b64encode(sha256_hash_digest).decode('utf-8')
+    }
 
-  # Returns properly formatted json response.
-  return jsonify(response)
+    # Returns properly formatted json response.
+    return jsonify(response)
+
+  # Handle POST request (Webhook event)
+  elif request.method == 'POST':
+    return '', 200
+
+  # Handle other methods if necessary (optional)
+  else:
+    return 'Method Not Allowed', 405
 
 def main():
   parser = argparse.ArgumentParser(
