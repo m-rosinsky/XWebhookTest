@@ -44,6 +44,18 @@ def webhook_challenge():
 
   # Handle POST request (Webhook event)
   elif request.method == 'POST':
+    event_data = request.get_json()
+    if event_data:
+      print("--- Received Webhook Event ---")
+      print(json.dumps(event_data, indent=2))
+      print("-----------------------------")
+    else:
+      # Log if the request body wasn't JSON or was empty
+      print("--- Received POST request with non-JSON or empty body ---")
+      print(f"Body: {request.data.decode('utf-8')}")
+      print("--------------------------------------------------------")
+
+    # Return 200 OK
     return '', 200
 
   # Handle other methods if necessary (optional)
