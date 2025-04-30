@@ -66,9 +66,9 @@ def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access
 
     # --- Prepare Request Headers ---
     request_headers = {
-        "Dtab-Local": ";".join(STAGING1_DTAB_OVERRIDES),
-        "X-TFE-Experiment-environment": "staging1",
-        "X-Decider-Overrides": "tfe_route:des_apiservice_staging1=on",
+        "Dtab-Local": "/s/apiservice/version => /s/minor/137",
+        #"X-TFE-Experiment-environment": "staging1",
+        #"X-Decider-Overrides": "tfe_route:des_apiservice_staging1=on",
         "Content-Type": "application/json",
     }
     if trace_enabled:
