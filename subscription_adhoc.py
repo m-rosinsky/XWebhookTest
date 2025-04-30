@@ -44,9 +44,14 @@ def parse_arguments():
         default='GET',
         help='HTTP method to use (default: GET)'
     )
+    parser.add_argument(
+        '--staging',
+        action='store_true',
+        help='Use staging environment headers.'
+    )
     return parser.parse_args()
 
-def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access_token, access_token_secret, trace_enabled, method):
+def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access_token, access_token_secret, trace_enabled, method, staging):
     """Checks the subscription status for a given webhook ID or creates one."""
 
     # --- Construct the URL ---
@@ -65,12 +70,22 @@ def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access
     )
 
     # --- Prepare Request Headers ---
-    request_headers = {
-        "Dtab-Local": "/s/apiservice/version => /s/minor/137",
-        #"X-TFE-Experiment-environment": "staging1",
-        #"X-Decider-Overrides": "tfe_route:des_apiservice_staging1=on",
-        "Content-Type": "application/json",
-    }
+    if staging:
+        print("Staging flag enabled. Using staging headers.")
+        request_headers = {
+            "Dtab-Local": ';'.join(STAGING1_DTAB_OVERRIDES),
+            "X-TFE-Experiment-environment": "staging1",
+            "X-Decider-Overrides": "tfe_route:des_apiservice_staging1=on",
+            "Content-Type": "application/json",
+        }
+    else:
+        print("Using default headers.")
+        request_headers = {
+            "Dtab-Local": "/s/apiservice/version => /s/minor/137", # Example default header
+            # Add other non-staging headers here if needed
+            "Content-Type": "application/json",
+        }
+
     if trace_enabled:
         print("Trace flag enabled. Adding X-B3-Flags header.")
         request_headers["X-B3-Flags"] = "1"
@@ -149,7 +164,8 @@ def main():
         access_token=access_token,
         access_token_secret=access_token_secret,
         trace_enabled=args.trace,
-        method=args.method # Pass the method argument
+        method=args.method,
+        staging=args.staging
     )
 
 if __name__ == "__main__":
