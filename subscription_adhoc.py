@@ -17,7 +17,7 @@ if not all([CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET, WE
     print("Please set TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET, and TWITTER_WEBHOOK_ID environment variables.", file=sys.stderr)
     sys.exit(1)
 
-API_BASE_URL = "https://api.x.com/2"
+API_BASE_URL = "https://api.twitter.com/2" # Corrected API base URL for v1.1 endpoints
 
 # Dtab overrides for staging environment (adjust if needed)
 STAGING1_DTAB_OVERRIDES = [
@@ -26,6 +26,7 @@ STAGING1_DTAB_OVERRIDES = [
     "/s/data-accountactivity/accountactivity-subscriptions-api:thrift => /srv#/staging1/atla/data-accountactivity/accountactivity-subscriptions-api:thrift",
     "/s/data-accountactivity/aaaconfigsvc:https => /srv#/staging1/atla/data-accountactivity/aaaconfigsvc:https",
     "/s/data-accountactivity/accountactivity-replay-api:thrift => /srv#/staging1/atla/data-accountactivity/accountactivity-replay-api:thrift",
+    "/s/data-publicapi/apiservice:https => /srv#/staging1/atla/data-publicapi/apiservice:https",
 ]
 
 def parse_arguments():
@@ -37,12 +38,20 @@ def parse_arguments():
         default=WEBHOOK_ID,
         help=f'Webhook ID to check (default: {WEBHOOK_ID})'
     )
+    parser.add_argument(
+        '--method',
+        choices=['GET', 'POST'],
+        default='GET',
+        help='HTTP method to use (default: GET)'
+    )
     return parser.parse_args()
 
-def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access_token, access_token_secret, trace_enabled):
-    """Checks the subscription status for a given webhook ID."""
+def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access_token, access_token_secret, trace_enabled, method):
+    """Checks the subscription status for a given webhook ID or creates one."""
 
     # --- Construct the URL ---
+    # Note: POST usually targets /subscriptions (singular), GET targets /subscriptions/all.
+    # Using the same path for both as requested, but this might need adjustment based on API behavior.
     endpoint_path = f"/account_activity/webhooks/{webhook_id}/subscriptions/all"
     resource_url = f"{API_BASE_URL}{endpoint_path}"
 
@@ -67,13 +76,25 @@ def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access
         request_headers["X-B3-Flags"] = "1"
 
     # --- Make the API Request ---
-    print(f"Making GET request to: {resource_url}")
+    print(f"Making {method} request to: {resource_url}")
     try:
-        response = requests.get(
-            url=resource_url,
-            headers=request_headers,
-            auth=oauth
-        )
+        if method == 'GET':
+            response = requests.get(
+                url=resource_url,
+                headers=request_headers,
+                auth=oauth
+            )
+        elif method == 'POST':
+            response = requests.post(
+                url=resource_url,
+                headers=request_headers,
+                auth=oauth
+                # POST requests might need a body, but none specified for this endpoint yet.
+            )
+        else:
+            # Should not happen due to argparse choices, but good practice
+            print(f"Error: Unsupported method '{method}'", file=sys.stderr)
+            sys.exit(1)
 
         # --- Process the Response ---
         print(f"Status Code: {response.status_code}")
@@ -81,8 +102,10 @@ def check_webhook_subscription(webhook_id, consumer_key, consumer_secret, access
         if trace_enabled and 'x-transaction-id' in response.headers:
             print(f"Trace ID (x-transaction-id): {response.headers['x-transaction-id']}")
 
-        if response.status_code == 204:
-            print("Result: Success! (204 No Content) - The user has an active subscription for this webhook.")
+        if method == 'GET' and response.status_code == 204:
+            print("Result (GET): Success! (204 No Content) - The user has an active subscription for this webhook.")
+        elif method == 'POST' and response.status_code == 200: # Assuming 200 OK for POST success here
+             print("Result (POST): Success! (200 OK) - Subscription check/action successful.")
         elif response.status_code == 404:
             print("Result: Not Found (404) - User may not have an active subscription, or the webhook ID might be incorrect.")
         elif response.status_code == 401:
@@ -125,7 +148,8 @@ def main():
         consumer_secret=consumer_secret,
         access_token=access_token,
         access_token_secret=access_token_secret,
-        trace_enabled=args.trace
+        trace_enabled=args.trace,
+        method=args.method # Pass the method argument
     )
 
 if __name__ == "__main__":

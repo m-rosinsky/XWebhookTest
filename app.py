@@ -23,8 +23,11 @@ if TWITTER_CONSUMER_SECRET is None:
 def webhook_challenge():
   # Handle GET request (CRC challenge)
   if request.method == 'GET':
+    print(f"--- Received GET request from {request.remote_addr} ---")
     crc_token = request.args.get('crc_token')
+    print(f"CRC Token received: {crc_token}")
     if crc_token is None:
+      print("Error: No crc_token found in the request.")
       return json.dumps({'error': 'No crc_token'})
 
     # Creates HMAC SHA-256 hash from incomming token and your consumer secret.
@@ -60,6 +63,7 @@ def webhook_challenge():
 
   # Handle other methods if necessary (optional)
   else:
+    print(f"--- Received unsupported method {request.method} from {request.remote_addr} ---")
     return 'Method Not Allowed', 405
 
 def main():
@@ -74,9 +78,16 @@ def main():
   )
   args = parser.parse_args()
 
+  print("--- Starting Webhook App ---")
+  print(f"Using TWITTER_CONSUMER_SECRET from environment variable.")
+
   if args.debug:
+    print("Running in DEBUG mode (Flask development server)")
     app.run(debug=True)
   else:
+    host = '0.0.0.0'
+    port = 8080
+    print(f"Running with Waitress WSGI server on {host}:{port}")
     serve(app, host='0.0.0.0', port=8080)
 
 if __name__ == '__main__':
